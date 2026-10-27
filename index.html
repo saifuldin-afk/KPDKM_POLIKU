@@ -1,0 +1,1769 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard DKM — Politeknik Kuching Sarawak</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── LOGIN SCREEN ────────────────────────── */
+    #login-screen {
+      position: fixed; inset: 0; z-index: 9999;
+      background: #0f172a;
+      display: flex; align-items: center; justify-content: center;
+      padding: 16px;
+    }
+    #login-screen.hidden { display: none; }
+    .login-wrap { width: 100%; max-width: 420px; }
+    .login-logo { text-align: center; margin-bottom: 28px; }
+    .login-logo .logo-icon { font-size: 42px; margin-bottom: 8px; }
+    .login-logo h1 { color: #fff; font-size: 20px; font-weight: 800; line-height: 1.3; }
+    .login-logo p { color: #94a3b8; font-size: 12px; margin-top: 4px; }
+
+    /* Role selector */
+    .role-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 20px; }
+    .role-tab {
+      padding: 12px 8px; border-radius: 9px; border: 2px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.04); color: #94a3b8; text-align: center;
+      cursor: pointer; transition: all 0.18s; font-size: 12px; font-weight: 600;
+    }
+    .role-tab .role-icon { font-size: 22px; display: block; margin-bottom: 5px; }
+    .role-tab:hover { border-color: rgba(26,86,219,0.5); color: #fff; background: rgba(26,86,219,0.1); }
+    .role-tab.active { border-color: #1a56db; background: rgba(26,86,219,0.2); color: #fff; }
+
+    /* Login form card */
+    .login-card {
+      background: #1e293b; border-radius: 14px; padding: 28px 28px 24px;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .login-card h2 { color: #fff; font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+    .login-card p { color: #64748b; font-size: 12px; margin-bottom: 22px; }
+    .login-field { margin-bottom: 16px; }
+    .login-label { display: block; font-size: 11px; font-weight: 700; color: #94a3b8; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .login-input {
+      width: 100%; padding: 11px 14px; background: #0f172a; border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px; color: #fff; font-size: 14px;
+    }
+    .login-input:focus { outline: none; border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,0.2); }
+    .login-input::placeholder { color: #475569; }
+    .login-hint { font-size: 11px; color: #475569; margin-top: 5px; }
+    .login-btn {
+      width: 100%; padding: 12px; background: #1a56db; color: #fff; border: none;
+      border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; margin-top: 6px;
+      transition: background 0.15s;
+    }
+    .login-btn:hover { background: #1240a8; }
+    .login-error {
+      background: rgba(220,38,38,0.15); border: 1px solid rgba(220,38,38,0.3);
+      color: #fca5a5; border-radius: 7px; padding: 10px 14px; font-size: 13px;
+      margin-bottom: 14px; display: none;
+    }
+    .login-error.show { display: block; }
+    .login-footer-txt { text-align: center; color: #334155; font-size: 11px; margin-top: 18px; }
+
+    /* Dashboard wrapper — hidden until logged in */
+    #app-shell { display: none; }
+    #app-shell.visible { display: block; }
+
+    :root {
+      --primary: #1a56db;
+      --primary-dark: #1240a8;
+      --sidebar-bg: #0f172a;
+      --sidebar-text: #cbd5e1;
+      --sidebar-active: #1a56db;
+      --bg: #f1f5f9;
+      --surface: #ffffff;
+      --border: #e2e8f0;
+      --text: #1e293b;
+      --muted: #64748b;
+      --green: #16a34a;
+      --green-bg: #dcfce7;
+      --yellow: #d97706;
+      --yellow-bg: #fef3c7;
+      --red: #dc2626;
+      --red-bg: #fee2e2;
+      --blue: #1a56db;
+      --blue-bg: #dbeafe;
+      --radius: 10px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+      --sidebar-w: 240px;
+    }
+
+    body { font-family: -apple-system, "Segoe UI", system-ui, sans-serif; font-size: 14px; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* ── SIDEBAR ─────────────────────────────── */
+    .sidebar {
+      position: fixed; top: 0; left: 0; width: var(--sidebar-w);
+      height: 100vh; background: var(--sidebar-bg);
+      display: flex; flex-direction: column; z-index: 200;
+      transition: transform 0.25s ease;
+    }
+    .sidebar-brand {
+      padding: 20px 18px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .sidebar-brand .brand-title { color: #fff; font-size: 15px; font-weight: 700; line-height: 1.3; }
+    .sidebar-brand .brand-sub { color: var(--sidebar-text); font-size: 11px; margin-top: 2px; }
+    .sidebar-nav { flex: 1; overflow-y: auto; padding: 12px 0; }
+    .nav-section { padding: 10px 18px 4px; color: #475569; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 18px; color: var(--sidebar-text); cursor: pointer;
+      font-size: 13.5px; border-radius: 0; transition: background 0.15s;
+      border-left: 3px solid transparent; text-decoration: none;
+    }
+    .nav-item:hover { background: rgba(255,255,255,0.06); color: #fff; }
+    .nav-item.active { background: rgba(26,86,219,0.18); color: #fff; border-left-color: var(--primary); }
+    .nav-item .icon { width: 18px; text-align: center; font-size: 15px; flex-shrink: 0; }
+    .nav-badge { margin-left: auto; background: var(--red); color: #fff; border-radius: 20px; font-size: 10px; font-weight: 700; padding: 1px 7px; }
+    .nav-badge.yellow { background: var(--yellow); }
+    .sidebar-footer {
+      padding: 14px 18px; border-top: 1px solid rgba(255,255,255,0.08);
+      color: var(--sidebar-text); font-size: 12px;
+    }
+    .sidebar-footer .user-name { color: #fff; font-weight: 600; font-size: 13px; }
+    .sidebar-footer .user-role { color: #94a3b8; font-size: 11px; margin-top: 1px; }
+    .btn-logout { margin-top: 10px; display: block; padding: 7px 12px; background: rgba(255,255,255,0.07); color: var(--sidebar-text); border: none; border-radius: 6px; cursor: pointer; font-size: 12px; text-align: center; width: 100%; }
+    .btn-logout:hover { background: rgba(255,255,255,0.13); }
+
+    /* ── TOPBAR ─────────────────────────────── */
+    .topbar {
+      position: fixed; top: 0; left: var(--sidebar-w); right: 0;
+      height: 56px; background: var(--surface); border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; padding: 0 24px; gap: 12px; z-index: 100;
+    }
+    .topbar-title { font-size: 15px; font-weight: 700; color: var(--text); flex: 1; }
+    .topbar-title span { color: var(--muted); font-weight: 400; font-size: 13px; }
+    .topbar-actions { display: flex; align-items: center; gap: 10px; }
+    .btn-notif {
+      position: relative; background: none; border: none; cursor: pointer;
+      font-size: 18px; padding: 6px; border-radius: 8px; color: var(--muted);
+    }
+    .btn-notif:hover { background: var(--bg); }
+    .notif-dot {
+      position: absolute; top: 4px; right: 4px;
+      width: 16px; height: 16px; background: var(--red);
+      border-radius: 50%; color: #fff; font-size: 9px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      border: 2px solid var(--surface);
+    }
+    .avatar {
+      width: 34px; height: 34px; background: var(--primary);
+      border-radius: 50%; color: #fff; font-weight: 700; font-size: 13px;
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+    }
+    .hamburger { display: none; background: none; border: none; font-size: 22px; cursor: pointer; color: var(--text); padding: 4px 8px; }
+
+    /* ── MAIN CONTENT ────────────────────────── */
+    .main { margin-left: var(--sidebar-w); padding-top: 56px; min-height: 100vh; }
+    .page { display: none; padding: 24px; }
+    .page.active { display: block; }
+
+    /* ── PAGE HEADER ─────────────────────────── */
+    .page-header { margin-bottom: 20px; }
+    .page-header h1 { font-size: 20px; font-weight: 700; color: var(--text); }
+    .page-header p { color: var(--muted); font-size: 13px; margin-top: 3px; }
+    .breadcrumb { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    .breadcrumb span { color: var(--text); }
+
+    /* ── STAT CARDS ──────────────────────────── */
+    .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+    .stat-card {
+      background: var(--surface); border-radius: var(--radius);
+      padding: 18px 20px; box-shadow: var(--shadow); border: 1px solid var(--border);
+      cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;
+      position: relative; overflow: hidden;
+    }
+    .stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .stat-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; }
+    .stat-card.blue::before { background: var(--blue); }
+    .stat-card.yellow::before { background: var(--yellow); }
+    .stat-card.red::before { background: var(--red); }
+    .stat-card.green::before { background: var(--green); }
+    .stat-label { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+    .stat-value { font-size: 36px; font-weight: 800; margin: 6px 0 4px; line-height: 1; }
+    .stat-card.blue .stat-value { color: var(--blue); }
+    .stat-card.yellow .stat-value { color: var(--yellow); }
+    .stat-card.red .stat-value { color: var(--red); }
+    .stat-card.green .stat-value { color: var(--green); }
+    .stat-sub { font-size: 12px; color: var(--muted); }
+    .stat-icon { position: absolute; right: 16px; top: 14px; font-size: 28px; opacity: 0.15; }
+
+    /* ── CHARTS ROW ──────────────────────────── */
+    .charts-row { display: grid; grid-template-columns: 3fr 2fr; gap: 16px; margin-bottom: 20px; }
+    .card {
+      background: var(--surface); border-radius: var(--radius);
+      border: 1px solid var(--border); box-shadow: var(--shadow);
+    }
+    .card-header {
+      padding: 16px 20px 0; display: flex; align-items: center;
+      justify-content: space-between; gap: 8px;
+    }
+    .card-title { font-size: 14px; font-weight: 700; color: var(--text); }
+    .card-sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
+    .card-body { padding: 16px 20px 20px; }
+    .chart-wrap { position: relative; height: 220px; }
+
+    /* ── BOTTOM ROW ──────────────────────────── */
+    .bottom-row { display: grid; grid-template-columns: 3fr 2fr; gap: 16px; }
+
+    /* ── TABLE ───────────────────────────────── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; padding: 10px 14px; border-bottom: 2px solid var(--border); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); background: #f8fafc; }
+    td { padding: 11px 14px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f8fafc; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700;
+    }
+    .badge.green { background: var(--green-bg); color: var(--green); }
+    .badge.red { background: var(--red-bg); color: var(--red); }
+    .badge.yellow { background: var(--yellow-bg); color: var(--yellow); }
+    .badge.blue { background: var(--blue-bg); color: var(--blue); }
+    .badge.gray { background: #f1f5f9; color: var(--muted); }
+
+    /* ── ACTIVITY FEED ───────────────────────── */
+    .activity-list { list-style: none; }
+    .activity-item { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .activity-item:last-child { border-bottom: none; }
+    .activity-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); margin-top: 5px; flex-shrink: 0; }
+    .activity-dot.red { background: var(--red); }
+    .activity-dot.green { background: var(--green); }
+    .activity-dot.yellow { background: var(--yellow); }
+    .activity-text { font-size: 13px; color: var(--text); }
+    .activity-time { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    /* ── BUTTONS ─────────────────────────────── */
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: background 0.15s; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-outline:hover { background: var(--bg); }
+    .btn-danger { background: var(--red-bg); color: var(--red); }
+    .btn-danger:hover { background: #fca5a5; }
+    .btn-sm { padding: 5px 10px; font-size: 12px; }
+    .btn-icon { background: none; border: none; cursor: pointer; padding: 5px 8px; border-radius: 6px; font-size: 14px; color: var(--muted); }
+    .btn-icon:hover { background: var(--bg); color: var(--text); }
+
+    /* ── SEARCH & FILTER BAR ─────────────────── */
+    .filter-bar { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+    .search-input { flex: 1; min-width: 200px; padding: 8px 12px 8px 36px; border: 1px solid var(--border); border-radius: 7px; font-size: 13px; background: var(--surface); color: var(--text); position: relative; }
+    .search-wrap { position: relative; flex: 1; min-width: 200px; }
+    .search-wrap::before { content: '🔍'; position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 13px; pointer-events: none; }
+    .search-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(26,86,219,0.12); }
+    select.filter-select { padding: 8px 12px; border: 1px solid var(--border); border-radius: 7px; font-size: 13px; background: var(--surface); color: var(--text); cursor: pointer; }
+    select.filter-select:focus { outline: none; border-color: var(--primary); }
+
+    /* ── PROFILE PAGE ────────────────────────── */
+    .profile-header {
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+      border-radius: var(--radius); padding: 24px; color: #fff; margin-bottom: 20px;
+      display: flex; gap: 20px; align-items: flex-start;
+    }
+    .profile-avatar-lg {
+      width: 64px; height: 64px; background: var(--primary); border-radius: 50%;
+      font-size: 24px; font-weight: 800; color: #fff;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .profile-info h2 { font-size: 18px; font-weight: 800; }
+    .profile-info .profile-meta { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+    .profile-badges { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+    .profile-badge { padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+    .profile-badge.green { background: rgba(22,163,74,0.2); color: #4ade80; }
+    .profile-badge.red { background: rgba(220,38,38,0.2); color: #f87171; }
+    .profile-badge.blue { background: rgba(26,86,219,0.2); color: #93c5fd; }
+    .profile-badge.yellow { background: rgba(217,119,6,0.2); color: #fcd34d; }
+
+    /* ── TABS ────────────────────────────────── */
+    .tabs { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 20px; overflow-x: auto; }
+    .tab-btn { padding: 10px 18px; background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -2px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* ── PLO GRID ────────────────────────────── */
+    .plo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+    .plo-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+    .plo-card.achieved { border-left: 4px solid var(--green); }
+    .plo-card.failed { border-left: 4px solid var(--red); }
+    .plo-card.warning { border-left: 4px solid var(--yellow); }
+    .plo-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .plo-num { font-size: 11px; font-weight: 700; color: var(--muted); }
+    .plo-name { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+    .plo-bar-wrap { background: #f1f5f9; border-radius: 20px; height: 8px; overflow: hidden; }
+    .plo-bar { height: 100%; border-radius: 20px; transition: width 0.6s ease; }
+    .plo-bar.green { background: var(--green); }
+    .plo-bar.red { background: var(--red); }
+    .plo-bar.yellow { background: var(--yellow); }
+    .plo-pct { font-size: 12px; font-weight: 700; margin-top: 4px; }
+    .plo-target { font-size: 11px; color: var(--muted); }
+
+    /* ── SEMESTER TABLE ──────────────────────── */
+    .sem-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+    .sem-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; text-align: center; }
+    .sem-card .sem-num { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
+    .sem-card .sem-gpa { font-size: 28px; font-weight: 800; color: var(--primary); margin: 6px 0; }
+    .sem-card.no-data .sem-gpa { color: var(--muted); font-size: 18px; }
+    .sem-card .sem-status { margin-top: 6px; }
+    .sem-upload-btn { margin-top: 8px; display: block; padding: 5px 10px; border: 1px dashed var(--border); border-radius: 6px; background: none; font-size: 11px; color: var(--muted); cursor: pointer; }
+    .sem-upload-btn:hover { background: var(--bg); border-color: var(--primary); color: var(--primary); }
+
+    /* ── KREDIT HOUR ─────────────────────────── */
+    .kredit-progress-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 22px; margin-bottom: 16px; }
+    .kredit-milestones { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+    .kredit-milestone { flex: 1; min-width: 140px; padding: 14px 16px; border-radius: 9px; border: 1px solid var(--border); }
+    .kredit-milestone .km-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+    .kredit-milestone .km-value { font-size: 26px; font-weight: 800; margin: 4px 0 2px; }
+    .kredit-milestone .km-sub { font-size: 11px; color: var(--muted); }
+    .kredit-milestone.achieved { background: var(--green-bg); border-color: var(--green); }
+    .kredit-milestone.achieved .km-value { color: var(--green); }
+    .kredit-milestone.pending { background: var(--yellow-bg); border-color: var(--yellow); }
+    .kredit-milestone.pending .km-value { color: var(--yellow); }
+    .kredit-milestone.locked { background: #f8fafc; border-color: var(--border); }
+    .kredit-milestone.locked .km-value { color: var(--muted); }
+    .kredit-track { position: relative; margin: 4px 0 6px; }
+    .kredit-track-bg { height: 14px; background: #e2e8f0; border-radius: 20px; overflow: hidden; position: relative; }
+    .kredit-track-fill { height: 100%; border-radius: 20px; transition: width 0.8s ease; background: linear-gradient(90deg, #1a56db, #16a34a); }
+    .kredit-track-marker { position: absolute; top: -5px; height: 24px; width: 3px; background: var(--yellow); border-radius: 2px; transform: translateX(-50%); }
+    .kredit-track-marker.li-marker { background: var(--yellow); }
+    .kredit-track-marker.grad-marker { background: var(--red); }
+    .kredit-track-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); margin-top: 4px; }
+    .kredit-sem-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .kredit-sem-table th { text-align: left; padding: 8px 12px; border-bottom: 2px solid var(--border); font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--muted); background: #f8fafc; }
+    .kredit-sem-table td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .kredit-sem-table tr:last-child td { border-bottom: none; }
+    .kredit-sem-table tr:hover td { background: #f8fafc; }
+    .kredit-sem-section { font-weight: 700; background: #f1f5f9 !important; color: var(--text); font-size: 12px; }
+    .kredit-sem-section td { padding: 7px 12px; }
+    .subj-kredit { font-weight: 700; color: var(--primary); }
+    .kredit-total-row td { font-weight: 800; background: #f8fafc; border-top: 2px solid var(--border); }
+
+    /* ── OVERLAY (mobile sidebar) ────────────── */
+    .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 150; }
+
+    /* ── PLO SUMMARY BAR ─────────────────────── */
+    .plo-summary { display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+    .plo-summary-item { display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); font-size: 13px; }
+    .plo-summary-num { font-size: 22px; font-weight: 800; }
+
+    /* ── EMPTY STATE ─────────────────────────── */
+    .empty-state { text-align: center; padding: 40px 20px; color: var(--muted); }
+    .empty-state .empty-icon { font-size: 40px; margin-bottom: 10px; }
+
+    /* ── TOOLTIP TAG ─────────────────────────── */
+    .plo-tag { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 10px; font-weight: 700; background: var(--red-bg); color: var(--red); margin: 1px; }
+    .plo-tag.ok { background: var(--green-bg); color: var(--green); }
+
+    /* ── MODAL ───────────────────────────────── */
+    .modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 500; align-items: center; justify-content: center; padding: 16px; }
+    .modal-bg.open { display: flex; }
+    .modal { background: var(--surface); border-radius: 12px; max-width: 480px; width: 100%; max-height: 90vh; overflow-y: auto; }
+    .modal-header { padding: 18px 20px 0; display: flex; justify-content: space-between; align-items: center; }
+    .modal-header h3 { font-size: 16px; font-weight: 700; }
+    .modal-body { padding: 16px 20px 20px; }
+    .form-group { margin-bottom: 14px; }
+    .form-label { display: block; font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 5px; }
+    .form-input { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 7px; font-size: 13px; }
+    .form-input:focus { outline: none; border-color: var(--primary); }
+    select.form-input { cursor: pointer; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .modal-footer { padding: 0 20px 20px; display: flex; gap: 10px; justify-content: flex-end; }
+
+    /* ── RESPONSIVE ──────────────────────────── */
+    @media (max-width: 1024px) {
+      .charts-row { grid-template-columns: 1fr; }
+      .bottom-row { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 768px) {
+      :root { --sidebar-w: 0px; }
+      .sidebar { transform: translateX(-240px); width: 240px; }
+      .sidebar.open { transform: translateX(0); }
+      .overlay.open { display: block; }
+      .topbar { left: 0; padding: 0 16px; }
+      .hamburger { display: block; }
+      .main { margin-left: 0; }
+      .page { padding: 16px; }
+      .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+      .stat-value { font-size: 28px; }
+      .profile-header { flex-direction: column; }
+      .form-row { grid-template-columns: 1fr; }
+      .filter-bar { gap: 8px; }
+    }
+    @media (max-width: 480px) {
+      .stat-grid { grid-template-columns: repeat(2, 1fr); }
+      .plo-grid { grid-template-columns: 1fr; }
+      .sem-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- LOGIN SCREEN                                -->
+<!-- ═══════════════════════════════════════════ -->
+<div id="login-screen">
+  <div class="login-wrap">
+
+    <!-- Logo -->
+    <div class="login-logo">
+      <div class="logo-icon">📐</div>
+      <h1>Sistem Pengurusan Program<br>Diploma Kejuruteraan Mekanikal</h1>
+      <p>Politeknik Kuching Sarawak &nbsp;•&nbsp; Sesi 2024/2025</p>
+    </div>
+
+    <!-- Role selector -->
+    <div class="role-tabs">
+      <div class="role-tab active" onclick="selectRole('ketua')" id="role-ketua">
+        <span class="role-icon">👨‍💼</span>Ketua Program
+      </div>
+      <div class="role-tab" onclick="selectRole('penasihat')" id="role-penasihat">
+        <span class="role-icon">👨‍🏫</span>Penasihat Akademik
+      </div>
+      <div class="role-tab" onclick="selectRole('pelajar')" id="role-pelajar">
+        <span class="role-icon">👨‍🎓</span>Pelajar
+      </div>
+    </div>
+
+    <!-- Login card -->
+    <div class="login-card">
+      <h2 id="login-title">Log Masuk — Ketua Program</h2>
+      <p id="login-desc">Masukkan No. Kad Pengenalan anda sebagai username dan password.</p>
+
+      <div class="login-error" id="login-error">❌ No. Kad Pengenalan tidak sah. Sila cuba semula.</div>
+
+      <div class="login-field">
+        <label class="login-label">Username (No. Kad Pengenalan)</label>
+        <input class="login-input" type="text" id="login-username" placeholder="Contoh: 850312131234" maxlength="12" oninput="this.value=this.value.replace(/\D/g,'')">
+        <div class="login-hint">Format: 12 digit tanpa sempang (cth: 850312131234)</div>
+      </div>
+      <div class="login-field">
+        <label class="login-label">Password (No. Kad Pengenalan)</label>
+        <input class="login-input" type="password" id="login-password" placeholder="••••••••••••" maxlength="12" oninput="this.value=this.value.replace(/\D/g,'')" onkeydown="if(event.key==='Enter')doLogin()">
+        <div class="login-hint">Password anda adalah sama dengan No. Kad Pengenalan</div>
+      </div>
+
+      <button class="login-btn" onclick="doLogin()">🔐 Log Masuk</button>
+    </div>
+
+    <div class="login-footer-txt">© 2024 Politeknik Kuching Sarawak &nbsp;•&nbsp; DKM Dashboard v1.0</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- APP SHELL (visible after login)            -->
+<!-- ═══════════════════════════════════════════ -->
+<div id="app-shell">
+
+<!-- OVERLAY (mobile) -->
+<div class="overlay" id="overlay" onclick="closeSidebar()"></div>
+
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-title">📐 DKM Dashboard</div>
+    <div class="brand-sub">Politeknik Kuching Sarawak</div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section">Menu Utama</div>
+    <a class="nav-item active" onclick="showPage('dashboard')">
+      <span class="icon">🏠</span> Dashboard Utama
+    </a>
+
+    <div class="nav-section">Pengurusan Pelajar</div>
+    <a class="nav-item" onclick="showPage('senarai-pelajar')">
+      <span class="icon">👨‍🎓</span> Senarai Pelajar
+    </a>
+    <a class="nav-item" onclick="showPage('tidak-kredit-bm')">
+      <span class="icon">📜</span> Tidak Kredit BM
+      <span class="nav-badge">15</span>
+    </a>
+    <a class="nav-item" onclick="showPage('tidak-capai-plo')">
+      <span class="icon">🎯</span> Tidak Capai PLO
+      <span class="nav-badge">22</span>
+    </a>
+
+    <div class="nav-section">Akademik</div>
+    <a class="nav-item" onclick="showPage('dashboard')">
+      <span class="icon">📊</span> Analitik Program
+    </a>
+    <a class="nav-item" onclick="showPage('dashboard')">
+      <span class="icon">🏭</span> Latihan Industri
+      <span class="nav-badge yellow">5</span>
+    </a>
+
+    <div class="nav-section">Lain-lain</div>
+    <a class="nav-item" onclick="showPage('dashboard')">
+      <span class="icon">📁</span> Fail Program
+    </a>
+    <a class="nav-item" onclick="showPage('dashboard')">
+      <span class="icon">⚙️</span> Tetapan
+    </a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="user-name">En. Saifuldin bin Abdul Jalil</div>
+    <div class="user-role">Ketua Program DKM</div>
+    <button class="btn-logout" onclick="doLogout()">🚪 Daftar Keluar</button>
+  </div>
+</aside>
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <button class="hamburger" onclick="toggleSidebar()">☰</button>
+  <div class="topbar-title" id="topbar-title">
+    Dashboard Utama <span>/ Sesi 2024/2025</span>
+  </div>
+  <div class="topbar-actions">
+    <button class="btn-notif" onclick="alert('3 notifikasi baru')">
+      🔔 <span class="notif-dot">3</span>
+    </button>
+    <div class="avatar" title="En. Saifuldin bin Abdul Jalil">SA</div>
+  </div>
+</header>
+
+<!-- MAIN -->
+<main class="main">
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- PAGE: DASHBOARD UTAMA                       -->
+  <!-- ═══════════════════════════════════════════ -->
+  <section class="page active" id="page-dashboard">
+    <div class="page-header">
+      <h1>Dashboard Utama</h1>
+      <p>Ringkasan Program Diploma Kejuruteraan Mekanikal — Sesi 2024/2025</p>
+    </div>
+
+    <!-- Stat Cards -->
+    <div class="stat-grid">
+      <div class="stat-card blue" onclick="showPage('senarai-pelajar')">
+        <div class="stat-icon">👨‍🎓</div>
+        <div class="stat-label">Jumlah Pelajar</div>
+        <div class="stat-value">120</div>
+        <div class="stat-sub">Kohort 2022 – 2024</div>
+      </div>
+      <div class="stat-card yellow" onclick="showPage('senarai-pelajar')">
+        <div class="stat-icon">⚠️</div>
+        <div class="stat-label">Pelajar Berisiko</div>
+        <div class="stat-value">18</div>
+        <div class="stat-sub">CGPA &lt; 2.00 atau Hadir &lt; 80%</div>
+      </div>
+      <div class="stat-card red" onclick="showPage('tidak-kredit-bm')">
+        <div class="stat-icon">📜</div>
+        <div class="stat-label">Tidak Kredit BM</div>
+        <div class="stat-value">15</div>
+        <div class="stat-sub">Gred D / E / G dalam SPM</div>
+      </div>
+      <div class="stat-card red" onclick="showPage('tidak-capai-plo')">
+        <div class="stat-icon">🎯</div>
+        <div class="stat-label">Tidak Capai PLO</div>
+        <div class="stat-value">22</div>
+        <div class="stat-sub">Belum capai ≥ 1 daripada 11 PLO</div>
+      </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="charts-row">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">📈 Trend GPA Kohort</div>
+            <div class="card-sub">Perbandingan prestasi Kohort 2022, 2023 & 2024</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="chart-wrap"><canvas id="chartGPA"></canvas></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">🎯 Pencapaian PLO Program</div>
+            <div class="card-sub">% pelajar capai setiap PLO</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="chart-wrap"><canvas id="chartPLO"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Row -->
+    <div class="bottom-row">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">🔴 Pelajar Memerlukan Perhatian</div>
+            <div class="card-sub">Terkini — berdasarkan PLO & kehadiran</div>
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="showPage('senarai-pelajar')">Lihat Semua</button>
+        </div>
+        <div class="card-body">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Nama Pelajar</th>
+                  <th>No. Matrik</th>
+                  <th>Isu</th>
+                  <th>Tindakan</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Ali bin Abu</strong></td>
+                  <td>PKS23DJM005</td>
+                  <td><span class="badge red">PLO 3,7,11</span></td>
+                  <td><button class="btn-icon" onclick="showProfil('ali')">👁</button></td>
+                </tr>
+                <tr>
+                  <td><strong>Siti Nur Aisyah</strong></td>
+                  <td>PKS23DJM012</td>
+                  <td><span class="badge yellow">Hadir 72%</span></td>
+                  <td><button class="btn-icon" onclick="showProfil('siti')">👁</button></td>
+                </tr>
+                <tr>
+                  <td><strong>Mohd Hafiz Zulkifli</strong></td>
+                  <td>PKS22DJM031</td>
+                  <td><span class="badge red">PLO 3,11</span> <span class="badge red">BM: D</span></td>
+                  <td><button class="btn-icon" onclick="showProfil('hafiz')">👁</button></td>
+                </tr>
+                <tr>
+                  <td><strong>Nurul Hidayah Aziz</strong></td>
+                  <td>PKS23DJM019</td>
+                  <td><span class="badge red">CGPA 1.87</span></td>
+                  <td><button class="btn-icon" onclick="showProfil('nurul')">👁</button></td>
+                </tr>
+                <tr>
+                  <td><strong>Firdaus bin Hamid</strong></td>
+                  <td>PKS24DJM007</td>
+                  <td><span class="badge yellow">PLO 7</span></td>
+                  <td><button class="btn-icon" onclick="showProfil('firdaus')">👁</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📅 Aktiviti Terkini</div>
+        </div>
+        <div class="card-body">
+          <ul class="activity-list">
+            <li class="activity-item">
+              <div class="activity-dot green"></div>
+              <div><div class="activity-text">Transkrip Sem 4 berjaya diupload — <strong>Ali bin Abu</strong></div><div class="activity-time">2 jam lepas</div></div>
+            </li>
+            <li class="activity-item">
+              <div class="activity-dot red"></div>
+              <div><div class="activity-text">Amaran PLO dijanakan — <strong>3 pelajar baru</strong></div><div class="activity-time">5 jam lepas</div></div>
+            </li>
+            <li class="activity-item">
+              <div class="activity-dot blue"></div>
+              <div><div class="activity-text">Slip SPM diupload — <strong>Kohort 2024 (12 pelajar)</strong></div><div class="activity-time">Semalam</div></div>
+            </li>
+            <li class="activity-item">
+              <div class="activity-dot yellow"></div>
+              <div><div class="activity-text">Pelajar LI belum dapat penempatan — <strong>5 orang</strong></div><div class="activity-time">2 hari lepas</div></div>
+            </li>
+            <li class="activity-item">
+              <div class="activity-dot green"></div>
+              <div><div class="activity-text">Profil pelajar baru ditambah — <strong>Kohort 2024</strong></div><div class="activity-time">3 hari lepas</div></div>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- PAGE: SENARAI PELAJAR                       -->
+  <!-- ═══════════════════════════════════════════ -->
+  <section class="page" id="page-senarai-pelajar">
+    <div class="page-header">
+      <div class="breadcrumb">Dashboard / <span>Senarai Pelajar</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">
+        <div>
+          <h1>👨‍🎓 Senarai Pelajar DKM</h1>
+          <p>Semua pelajar aktif — Program Diploma Kejuruteraan Mekanikal</p>
+        </div>
+        <button class="btn btn-primary" onclick="openModal('modal-tambah')">＋ Tambah Pelajar</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body">
+        <div class="filter-bar">
+          <div class="search-wrap">
+            <input class="search-input" type="text" placeholder="Cari nama atau no. matrik..." id="searchPelajar" oninput="filterPelajar()">
+          </div>
+          <select class="filter-select" id="filterKohort" onchange="filterPelajar()">
+            <option value="">Semua Kohort</option>
+            <option value="2022">Kohort 2022</option>
+            <option value="2023">Kohort 2023</option>
+            <option value="2024">Kohort 2024</option>
+          </select>
+          <select class="filter-select" id="filterStatus" onchange="filterPelajar()">
+            <option value="">Semua Status</option>
+            <option value="aktif">Aktif</option>
+            <option value="berisiko">Berisiko</option>
+            <option value="cuti">Cuti</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table id="tablePelajar">
+            <thead>
+              <tr>
+                <th>No.</th>
+                <th>Nama Pelajar</th>
+                <th>No. Matrik</th>
+                <th>Kohort</th>
+                <th>CGPA</th>
+                <th>BM SPM</th>
+                <th>PLO</th>
+                <th>Status</th>
+                <th>Tindakan</th>
+              </tr>
+            </thead>
+            <tbody id="bodyPelajar"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- PAGE: TIDAK KREDIT BM                       -->
+  <!-- ═══════════════════════════════════════════ -->
+  <section class="page" id="page-tidak-kredit-bm">
+    <div class="page-header">
+      <div class="breadcrumb">Dashboard / <span>Tidak Kredit BM SPM</span></div>
+      <h1>📜 Pelajar Tidak Kredit Bahasa Melayu SPM</h1>
+      <p>Pelajar yang memperoleh gred D, E atau G dalam mata pelajaran Bahasa Melayu SPM</p>
+    </div>
+    <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);max-width:600px;margin-bottom:20px">
+      <div class="stat-card red"><div class="stat-label">Tidak Kredit BM</div><div class="stat-value">15</div><div class="stat-sub">Perlu ambil BMK</div></div>
+      <div class="stat-card green"><div class="stat-label">Kredit BM</div><div class="stat-value">105</div><div class="stat-sub">A / B / C</div></div>
+      <div class="stat-card" style="--c:var(--muted)"><div class="stat-label">Belum Upload SPM</div><div class="stat-value" style="color:var(--muted);font-size:28px">—</div><div class="stat-sub">0 pelajar</div></div>
+    </div>
+    <div class="card">
+      <div class="card-body">
+        <div class="filter-bar">
+          <div class="search-wrap">
+            <input class="search-input" type="text" placeholder="Cari nama atau no. matrik..." id="searchBM" oninput="filterBM()">
+          </div>
+          <select class="filter-select" id="filterKohortBM" onchange="filterBM()">
+            <option value="">Semua Kohort</option>
+            <option value="2022">Kohort 2022</option>
+            <option value="2023">Kohort 2023</option>
+            <option value="2024">Kohort 2024</option>
+          </select>
+          <button class="btn btn-outline btn-sm">📥 Export Excel</button>
+          <button class="btn btn-outline btn-sm">🖨️ Cetak</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Bil</th><th>Nama Pelajar</th><th>No. Matrik</th><th>Kohort</th><th>Tahun SPM</th><th>Gred BM</th><th>Status</th><th>Tindakan</th></tr>
+            </thead>
+            <tbody id="bodyBM"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- PAGE: TIDAK CAPAI PLO                       -->
+  <!-- ═══════════════════════════════════════════ -->
+  <section class="page" id="page-tidak-capai-plo">
+    <div class="page-header">
+      <div class="breadcrumb">Dashboard / <span>Tidak Capai PLO</span></div>
+      <h1>🎯 Pelajar Tidak Capai Programme Learning Outcome</h1>
+      <p>Pelajar yang belum mencapai sasaran attainment ≥ 50% bagi mana-mana PLO daripada 11 PLO program DKM</p>
+    </div>
+
+    <div class="plo-summary">
+      <div class="plo-summary-item"><div class="plo-summary-num" style="color:var(--red)">22</div><div>Pelajar tidak capai ≥ 1 PLO</div></div>
+      <div class="plo-summary-item"><div class="plo-summary-num" style="color:var(--yellow)">98</div><div>Pelajar capai semua PLO</div></div>
+      <div class="plo-summary-item"><div class="plo-summary-num" style="color:var(--primary)">11</div><div>Jumlah PLO Program</div></div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-header"><div class="card-title">📊 % Pelajar Capai Setiap PLO — Keseluruhan Program</div></div>
+      <div class="card-body"><div class="chart-wrap" style="height:200px"><canvas id="chartPLOBar"></canvas></div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <div class="filter-bar">
+          <div class="search-wrap">
+            <input class="search-input" type="text" placeholder="Cari nama atau no. matrik..." id="searchPLO" oninput="filterPLO()">
+          </div>
+          <select class="filter-select" id="filterKohortPLO" onchange="filterPLO()">
+            <option value="">Semua Kohort</option>
+            <option value="2022">Kohort 2022</option>
+            <option value="2023">Kohort 2023</option>
+            <option value="2024">Kohort 2024</option>
+          </select>
+          <select class="filter-select" id="filterPLONum" onchange="filterPLO()">
+            <option value="">Semua PLO</option>
+            <option value="1">PLO 1</option><option value="2">PLO 2</option>
+            <option value="3">PLO 3</option><option value="4">PLO 4</option>
+            <option value="5">PLO 5</option><option value="6">PLO 6</option>
+            <option value="7">PLO 7</option><option value="8">PLO 8</option>
+            <option value="9">PLO 9</option><option value="10">PLO 10</option>
+            <option value="11">PLO 11</option>
+          </select>
+          <button class="btn btn-outline btn-sm">📥 Export Excel</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Bil</th><th>Nama Pelajar</th><th>No. Matrik</th><th>Kohort</th><th>PLO Tidak Capai</th><th>Bilangan PLO Gagal</th><th>Status Graduasi</th><th>Tindakan</th></tr>
+            </thead>
+            <tbody id="bodyPLO"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- PAGE: PROFIL PELAJAR                        -->
+  <!-- ═══════════════════════════════════════════ -->
+  <section class="page" id="page-profil">
+    <div class="page-header">
+      <div class="breadcrumb"><a href="#" onclick="showPage('senarai-pelajar')" style="color:var(--primary);text-decoration:none">← Kembali ke Senarai Pelajar</a></div>
+    </div>
+
+    <div class="profile-header">
+      <div class="profile-avatar-lg" id="profil-avatar">AS</div>
+      <div class="profile-info">
+        <h2 id="profil-nama">Ahmad Syafiq bin Razali</h2>
+        <div class="profile-meta" id="profil-meta">PKS23DJM001 &nbsp;|&nbsp; Kohort 2023 &nbsp;|&nbsp; Semester 4 Semasa</div>
+        <div class="profile-badges" id="profil-badges">
+          <span class="profile-badge green">✅ Aktif</span>
+          <span class="profile-badge blue">CGPA: 3.21</span>
+          <span class="profile-badge green">BM: ✅ Kredit</span>
+          <span class="profile-badge yellow">PLO: 8/11</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" onclick="showTab('peribadi')">👤 Peribadi</button>
+      <button class="tab-btn" onclick="showTab('spm')">📜 Keputusan SPM</button>
+      <button class="tab-btn" onclick="showTab('semester')">📊 Keputusan Semester</button>
+      <button class="tab-btn" onclick="showTab('plo')">🎯 Pencapaian PLO</button>
+      <button class="tab-btn" onclick="showTab('li')">🏭 Latihan Industri</button>
+    </div>
+
+    <!-- Tab: Peribadi -->
+    <div class="tab-content active" id="tab-peribadi">
+      <div class="card">
+        <div class="card-header"><div class="card-title">Maklumat Peribadi</div></div>
+        <div class="card-body">
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px">
+            <div><div class="form-label">Nama Penuh</div><div id="p-nama">Ahmad Syafiq bin Razali</div></div>
+            <div><div class="form-label">No. IC</div><div>050312-13-1234</div></div>
+            <div><div class="form-label">Tarikh Lahir</div><div>12 Mac 2005</div></div>
+            <div><div class="form-label">Jantina</div><div>Lelaki</div></div>
+            <div><div class="form-label">No. Telefon</div><div>011-2345 6789</div></div>
+            <div><div class="form-label">E-mel</div><div>syafiq@student.pks.edu.my</div></div>
+            <div><div class="form-label">Alamat</div><div>Jalan Setia, Kuching, Sarawak</div></div>
+            <div><div class="form-label">Kenalan Kecemasan</div><div>Razali bin Musa — 019-345 6789</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: SPM -->
+    <div class="tab-content" id="tab-spm">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📜 Keputusan SPM</div>
+          <button class="btn btn-primary btn-sm" onclick="openModal('modal-upload-spm')">📤 Upload / Kemaskini</button>
+        </div>
+        <div class="card-body">
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-bottom:20px">
+            <div style="padding:14px;background:var(--bg);border-radius:8px">
+              <div class="form-label">Tahun SPM</div><div style="font-weight:700;font-size:16px">2022</div>
+            </div>
+            <div style="padding:14px;background:var(--bg);border-radius:8px">
+              <div class="form-label">Gred Bahasa Melayu</div>
+              <div style="font-weight:800;font-size:22px;color:var(--green)">C+</div>
+            </div>
+            <div style="padding:14px;background:var(--green-bg);border-radius:8px;border:1px solid var(--green)">
+              <div class="form-label">Status Kredit BM</div>
+              <div style="font-weight:800;font-size:16px;color:var(--green)">✅ KREDIT</div>
+            </div>
+            <div style="padding:14px;background:var(--bg);border-radius:8px">
+              <div class="form-label">Slip SPM</div>
+              <div><button class="btn btn-outline btn-sm">📄 Lihat Slip</button></div>
+            </div>
+          </div>
+          <div class="card-title" style="margin-bottom:12px">Keputusan Lengkap</div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Mata Pelajaran</th><th>Gred</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td>Bahasa Melayu</td><td><strong>C+</strong></td><td><span class="badge green">Kredit</span></td></tr>
+                <tr><td>Bahasa Inggeris</td><td><strong>B</strong></td><td><span class="badge green">Kredit</span></td></tr>
+                <tr><td>Matematik</td><td><strong>A-</strong></td><td><span class="badge green">Kredit</span></td></tr>
+                <tr><td>Fizik</td><td><strong>B+</strong></td><td><span class="badge green">Kredit</span></td></tr>
+                <tr><td>Kimia</td><td><strong>C</strong></td><td><span class="badge green">Kredit</span></td></tr>
+                <tr><td>Pendidikan Islam</td><td><strong>A</strong></td><td><span class="badge green">Kredit</span></td></tr>
+                <tr><td>Sejarah</td><td><strong>B+</strong></td><td><span class="badge green">Kredit</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Semester -->
+    <div class="tab-content" id="tab-semester">
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-header"><div class="card-title">📈 Graf Trend GPA</div></div>
+        <div class="card-body"><div class="chart-wrap" style="height:200px"><canvas id="chartProfilGPA"></canvas></div></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📊 Keputusan Peperiksaan Semester</div>
+          <button class="btn btn-primary btn-sm" onclick="openModal('modal-upload-transkrip')">📤 Upload Transkrip</button>
+        </div>
+        <div class="card-body">
+          <div class="sem-grid">
+            <div class="sem-card">
+              <div class="sem-num">Semester 1</div>
+              <div class="sem-gpa">3.21</div>
+              <div class="sem-status"><span class="badge green">✅ Lengkap</span></div>
+              <button class="sem-upload-btn">📄 Lihat Transkrip</button>
+            </div>
+            <div class="sem-card">
+              <div class="sem-num">Semester 2</div>
+              <div class="sem-gpa">3.05</div>
+              <div class="sem-status"><span class="badge green">✅ Lengkap</span></div>
+              <button class="sem-upload-btn">📄 Lihat Transkrip</button>
+            </div>
+            <div class="sem-card">
+              <div class="sem-num">Semester 3</div>
+              <div class="sem-gpa">2.87</div>
+              <div class="sem-status"><span class="badge green">✅ Lengkap</span></div>
+              <button class="sem-upload-btn">📄 Lihat Transkrip</button>
+            </div>
+            <div class="sem-card">
+              <div class="sem-num">Semester 4</div>
+              <div class="sem-gpa">3.10</div>
+              <div class="sem-status"><span class="badge green">✅ Lengkap</span></div>
+              <button class="sem-upload-btn">📄 Lihat Transkrip</button>
+            </div>
+            <div class="sem-card no-data">
+              <div class="sem-num">Semester 5</div>
+              <div class="sem-gpa">—</div>
+              <div class="sem-status"><span class="badge gray">⏳ Belum Ada</span></div>
+              <button class="sem-upload-btn" onclick="openModal('modal-upload-transkrip')">📤 Upload</button>
+            </div>
+            <div class="sem-card no-data">
+              <div class="sem-num">Semester 6</div>
+              <div class="sem-gpa">—</div>
+              <div class="sem-status"><span class="badge gray">⏳ Belum Ada</span></div>
+              <button class="sem-upload-btn" onclick="openModal('modal-upload-transkrip')">📤 Upload</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Kredit Hour -->
+    <div class="tab-content" id="tab-kredit">
+
+      <!-- Progress tracker -->
+      <div class="kredit-progress-wrap">
+        <div style="font-size:14px;font-weight:700;margin-bottom:14px">📊 Tracker Kredit Hour — Ahmad Syafiq bin Razali</div>
+
+        <!-- Milestone cards -->
+        <div class="kredit-milestones" id="kreditMilestones"></div>
+
+        <!-- Progress bar track -->
+        <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px">KEMAJUAN KREDIT HOUR</div>
+        <div class="kredit-track">
+          <div class="kredit-track-bg">
+            <div class="kredit-track-fill" id="kreditFill" style="width:0%"></div>
+          </div>
+          <!-- LI marker at 83/93 = 89.25% -->
+          <div class="kredit-track-marker li-marker" style="left:89.25%" title="Had LI: 83 kredit"></div>
+          <!-- Grad marker at 93/93 = 100% -->
+          <div class="kredit-track-marker grad-marker" style="left:99%" title="Had Graduasi: 93 kredit"></div>
+        </div>
+        <div class="kredit-track-labels">
+          <span>0</span>
+          <span style="color:var(--yellow);font-weight:700">🏭 LI: 83 kredit</span>
+          <span style="color:var(--red);font-weight:700">🎓 Grad: 93 kredit</span>
+        </div>
+      </div>
+
+      <!-- Detail kredit per semester -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📋 Pecahan Kredit Hour Mengikut Subjek &amp; Semester</div>
+          <button class="btn btn-outline btn-sm">📥 Export</button>
+        </div>
+        <div class="card-body">
+          <div class="table-wrap">
+            <table class="kredit-sem-table" id="kreditTable"></table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Tab: PLO -->
+    <div class="tab-content" id="tab-plo">
+      <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+        <div style="padding:12px 20px;background:var(--green-bg);border-radius:8px;border:1px solid var(--green)">
+          <div style="font-size:11px;font-weight:700;color:var(--green)">PLO DICAPAI</div>
+          <div style="font-size:28px;font-weight:800;color:var(--green)">8 / 11</div>
+        </div>
+        <div style="padding:12px 20px;background:var(--red-bg);border-radius:8px;border:1px solid var(--red)">
+          <div style="font-size:11px;font-weight:700;color:var(--red)">PLO TIDAK CAPAI</div>
+          <div style="font-size:28px;font-weight:800;color:var(--red)">3 / 11</div>
+        </div>
+        <div style="padding:12px 20px;background:var(--yellow-bg);border-radius:8px;border:1px solid var(--yellow)">
+          <div style="font-size:11px;font-weight:700;color:var(--yellow)">STATUS GRADUASI</div>
+          <div style="font-size:14px;font-weight:800;color:var(--yellow);margin-top:6px">⚠️ BELUM LAYAK</div>
+        </div>
+      </div>
+      <div class="plo-grid" id="ploCards"></div>
+    </div>
+
+    <!-- Tab: LI -->
+    <div class="tab-content" id="tab-li">
+      <div class="card">
+        <div class="card-header"><div class="card-title">🏭 Maklumat Latihan Industri</div></div>
+        <div class="card-body">
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px">
+            <div style="padding:14px;background:var(--bg);border-radius:8px"><div class="form-label">Status LI</div><span class="badge yellow">⏳ Belum Mulai</span></div>
+            <div style="padding:14px;background:var(--bg);border-radius:8px"><div class="form-label">Syarikat</div><div>—</div></div>
+            <div style="padding:14px;background:var(--bg);border-radius:8px"><div class="form-label">Tarikh Mula</div><div>—</div></div>
+            <div style="padding:14px;background:var(--bg);border-radius:8px"><div class="form-label">Tarikh Tamat</div><div>—</div></div>
+            <div style="padding:14px;background:var(--bg);border-radius:8px"><div class="form-label">Pensyarah Pembimbing</div><div>—</div></div>
+            <div style="padding:14px;background:var(--bg);border-radius:8px"><div class="form-label">Markah LI</div><div>—</div></div>
+          </div>
+          <div style="margin-top:16px"><button class="btn btn-primary">📝 Kemaskini Maklumat LI</button></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- MODALS                                     -->
+<!-- ═══════════════════════════════════════════ -->
+
+<!-- Modal: Tambah Pelajar -->
+<div class="modal-bg" id="modal-tambah">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>➕ Tambah Pelajar Baru</h3>
+      <button class="btn-icon" onclick="closeModal('modal-tambah')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Nama Penuh</label><input class="form-input" type="text" placeholder="Nama penuh pelajar"></div>
+        <div class="form-group"><label class="form-label">No. IC</label><input class="form-input" type="text" placeholder="XXXXXX-XX-XXXX"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">No. Matrik</label><input class="form-input" type="text" placeholder="PKS24DJMXXX"></div>
+        <div class="form-group"><label class="form-label">Kohort</label>
+          <select class="form-input"><option>2022</option><option>2023</option><option selected>2024</option></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Jantina</label>
+          <select class="form-input"><option>Lelaki</option><option>Perempuan</option></select>
+        </div>
+        <div class="form-group"><label class="form-label">No. Telefon</label><input class="form-input" type="text" placeholder="01X-XXXX XXXX"></div>
+      </div>
+      <div class="form-group"><label class="form-label">E-mel Pelajar</label><input class="form-input" type="email" placeholder="nama@student.pks.edu.my"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-tambah')">Batal</button>
+      <button class="btn btn-primary" onclick="closeModal('modal-tambah')">💾 Simpan Pelajar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Upload SPM -->
+<div class="modal-bg" id="modal-upload-spm">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>📜 Upload Keputusan SPM</h3>
+      <button class="btn-icon" onclick="closeModal('modal-upload-spm')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Tahun SPM</label><input class="form-input" type="number" placeholder="2022" min="2015" max="2025"></div>
+        <div class="form-group"><label class="form-label">Gred Bahasa Melayu</label>
+          <select class="form-input" id="gradBM" onchange="updateBMStatus()">
+            <option value="">— Pilih Gred —</option>
+            <option value="A+">A+</option><option value="A">A</option><option value="A-">A-</option>
+            <option value="B+">B+</option><option value="B">B</option>
+            <option value="C+">C+</option><option value="C">C</option>
+            <option value="D">D</option><option value="E">E</option><option value="G">G</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Status Kredit BM</label>
+        <div id="bm-status-display" style="padding:10px 14px;border-radius:7px;background:var(--bg);font-weight:700;font-size:13px;color:var(--muted)">— Pilih gred dahulu —</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Upload Slip SPM (PDF / JPG / PNG)</label>
+        <div style="border:2px dashed var(--border);border-radius:8px;padding:24px;text-align:center;color:var(--muted);cursor:pointer" onclick="alert('Pilih fail...')">
+          <div style="font-size:28px">📄</div>
+          <div style="margin-top:6px;font-size:13px">Klik untuk pilih fail atau seret ke sini</div>
+          <div style="font-size:11px;margin-top:4px">Maksimum: 5MB</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-upload-spm')">Batal</button>
+      <button class="btn btn-primary" onclick="closeModal('modal-upload-spm')">💾 Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Upload Transkrip -->
+<div class="modal-bg" id="modal-upload-transkrip">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>📤 Upload Transkrip Semester</h3>
+      <button class="btn-icon" onclick="closeModal('modal-upload-transkrip')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Semester</label>
+          <select class="form-input"><option>Semester 1</option><option>Semester 2</option><option>Semester 3</option><option>Semester 4</option><option selected>Semester 5</option><option>Semester 6</option></select>
+        </div>
+        <div class="form-group"><label class="form-label">GPA Semester</label><input class="form-input" type="number" placeholder="0.00" step="0.01" min="0" max="4"></div>
+      </div>
+      <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:8px;text-transform:uppercase;margin-top:4px">Kredit Hour Per Subjek</div>
+      <div id="kredit-subjek-rows"></div>
+      <button type="button" class="btn btn-outline btn-sm" style="margin-top:8px" onclick="addKreditRow()">＋ Tambah Subjek</button>
+      <div style="margin-top:12px;padding:10px 14px;background:var(--blue-bg);border-radius:7px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:12px;font-weight:700;color:var(--primary)">Jumlah Kredit Semester Ini</span>
+        <span id="kredit-sem-total" style="font-size:20px;font-weight:800;color:var(--primary)">0 kredit</span>
+      </div>
+      <div class="form-group" style="margin-top:14px">
+        <label class="form-label">Upload Transkrip (PDF / JPG)</label>
+        <div style="border:2px dashed var(--border);border-radius:8px;padding:24px;text-align:center;color:var(--muted);cursor:pointer" onclick="alert('Pilih fail...')">
+          <div style="font-size:28px">📊</div>
+          <div style="margin-top:6px;font-size:13px">Klik untuk pilih fail transkrip</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-upload-transkrip')">Batal</button>
+      <button class="btn btn-primary" onclick="closeModal('modal-upload-transkrip')">💾 Simpan</button>
+    </div>
+  </div>
+</div>
+
+</div><!-- /#app-shell -->
+
+<script>
+// ── DATA ─────────────────────────────────────────────────────────
+const dataPelajar = [
+  { nama:'Ahmad Syafiq bin Razali', matrik:'PKS23DJM001', kohort:'2023', cgpa:3.21, bm:'C+', bmStatus:'kredit', plo:'8/11', ploGagal:[], status:'aktif' },
+  { nama:'Ali bin Abu', matrik:'PKS23DJM005', kohort:'2023', cgpa:2.10, bm:'C', bmStatus:'kredit', plo:'8/11', ploGagal:['PLO3','PLO7','PLO11'], status:'berisiko' },
+  { nama:'Siti Nur Aisyah binti Mohd', matrik:'PKS23DJM012', kohort:'2023', cgpa:2.85, bm:'B+', bmStatus:'kredit', plo:'10/11', ploGagal:['PLO7'], status:'aktif' },
+  { nama:'Mohd Hafiz bin Zulkifli', matrik:'PKS22DJM031', kohort:'2022', cgpa:2.50, bm:'D', bmStatus:'tidak', plo:'9/11', ploGagal:['PLO3','PLO11'], status:'aktif' },
+  { nama:'Nurul Hidayah binti Aziz', matrik:'PKS23DJM019', kohort:'2023', cgpa:1.87, bm:'A-', bmStatus:'kredit', plo:'7/11', ploGagal:['PLO3','PLO6','PLO7','PLO11'], status:'berisiko' },
+  { nama:'Firdaus bin Hamid', matrik:'PKS24DJM007', kohort:'2024', cgpa:3.45, bm:'B', bmStatus:'kredit', plo:'10/11', ploGagal:['PLO7'], status:'aktif' },
+  { nama:'Amirah binti Saiful', matrik:'PKS22DJM015', kohort:'2022', cgpa:3.67, bm:'A', bmStatus:'kredit', plo:'11/11', ploGagal:[], status:'aktif' },
+  { nama:'Haziq bin Roslan', matrik:'PKS23DJM028', kohort:'2023', cgpa:2.30, bm:'E', bmStatus:'tidak', plo:'8/11', ploGagal:['PLO3','PLO9','PLO11'], status:'berisiko' },
+  { nama:'Nabilah binti Kamal', matrik:'PKS24DJM003', kohort:'2024', cgpa:3.10, bm:'C+', bmStatus:'kredit', plo:'11/11', ploGagal:[], status:'aktif' },
+  { nama:'Zulaikha binti Yusof', matrik:'PKS22DJM042', kohort:'2022', cgpa:2.95, bm:'D', bmStatus:'tidak', plo:'9/11', ploGagal:['PLO7','PLO11'], status:'aktif' },
+  { nama:'Irfan bin Wahab', matrik:'PKS24DJM011', kohort:'2024', cgpa:2.75, bm:'B+', bmStatus:'kredit', plo:'10/11', ploGagal:['PLO9'], status:'aktif' },
+  { nama:'Syazwan bin Nordin', matrik:'PKS23DJM033', kohort:'2023', cgpa:1.95, bm:'C', bmStatus:'kredit', plo:'7/11', ploGagal:['PLO1','PLO3','PLO7','PLO11'], status:'berisiko' },
+];
+
+const dataBM = dataPelajar.filter(p => p.bmStatus === 'tidak');
+const dataTakPLO = dataPelajar.filter(p => p.ploGagal.length > 0);
+
+const ploData = [
+  { no:1, nama:'Pengetahuan Kejuruteraan', attainment:92, sasaran:50 },
+  { no:2, nama:'Kemahiran Praktikal', attainment:88, sasaran:50 },
+  { no:3, nama:'Pemikiran Kritis', attainment:71, sasaran:50 },
+  { no:4, nama:'Komunikasi', attainment:85, sasaran:50 },
+  { no:5, nama:'Kerja Berpasukan', attainment:90, sasaran:50 },
+  { no:6, nama:'Etika & Profesionalisme', attainment:94, sasaran:50 },
+  { no:7, nama:'Pengurusan Projek', attainment:68, sasaran:50 },
+  { no:8, nama:'Pembelajaran Sepanjang Hayat', attainment:87, sasaran:50 },
+  { no:9, nama:'Keusahawanan', attainment:82, sasaran:50 },
+  { no:10, nama:'Kemahiran Digital', attainment:79, sasaran:50 },
+  { no:11, nama:'Alam Sekitar & Kemampanan', attainment:73, sasaran:50 },
+];
+
+// PLO attainment untuk profil pelajar individu (Ahmad Syafiq)
+const profilPLO = [
+  { no:1, nama:'Pengetahuan Kejuruteraan', attainment:72, sasaran:50 },
+  { no:2, nama:'Kemahiran Praktikal', attainment:65, sasaran:50 },
+  { no:3, nama:'Pemikiran Kritis', attainment:48, sasaran:50 },
+  { no:4, nama:'Komunikasi', attainment:55, sasaran:50 },
+  { no:5, nama:'Kerja Berpasukan', attainment:61, sasaran:50 },
+  { no:6, nama:'Etika & Profesionalisme', attainment:50, sasaran:50 },
+  { no:7, nama:'Pengurusan Projek', attainment:43, sasaran:50 },
+  { no:8, nama:'Pembelajaran Sepanjang Hayat', attainment:58, sasaran:50 },
+  { no:9, nama:'Keusahawanan', attainment:52, sasaran:50 },
+  { no:10, nama:'Kemahiran Digital', attainment:68, sasaran:50 },
+  { no:11, nama:'Alam Sekitar & Kemampanan', attainment:49, sasaran:50 },
+];
+
+// ── DATA KREDIT HOUR ─────────────────────────────────────────────
+const KREDIT_LI = 83;        // kredit untuk layak pergi LI
+const KREDIT_GRAD = 93;      // total kredit untuk graduasi (83 + 10 LI)
+const KREDIT_LI_UNIT = 10;   // kredit LI itu sendiri
+
+const kreditData = [
+  {
+    sem: 1,
+    subjek: [
+      { kod:'MAT1001', nama:'Mathematics 1',         kredit:3 },
+      { kod:'ENG1001', nama:'Engineering Science',   kredit:3 },
+      { kod:'ENG1002', nama:'Engineering Drawing',   kredit:3 },
+      { kod:'WRK1001', nama:'Workshop Technology',   kredit:3 },
+      { kod:'BML1001', nama:'Bahasa Melayu Komunikasi', kredit:2 },
+      { kod:'ENG1011', nama:'English 1',             kredit:2 },
+    ]
+  },
+  {
+    sem: 2,
+    subjek: [
+      { kod:'MAT1002', nama:'Mathematics 2',         kredit:3 },
+      { kod:'MEC2001', nama:'Fluid Mechanics',       kredit:3 },
+      { kod:'MEC2002', nama:'Thermodynamics',        kredit:3 },
+      { kod:'MEC2003', nama:'Manufacturing Process', kredit:3 },
+      { kod:'MEC2004', nama:'Engineering Materials', kredit:3 },
+      { kod:'ENG1012', nama:'English 2',             kredit:2 },
+    ]
+  },
+  {
+    sem: 3,
+    subjek: [
+      { kod:'MEC3001', nama:'Mechanics of Materials',   kredit:3 },
+      { kod:'MEC3002', nama:'Machine Elements',         kredit:3 },
+      { kod:'MEC3003', nama:'CNC Technology',           kredit:3 },
+      { kod:'MEC3004', nama:'Pneumatics & Hydraulics',  kredit:3 },
+      { kod:'MEC3005', nama:'Electrical Technology',    kredit:3 },
+      { kod:'GEN3001', nama:'Co-Curriculum',            kredit:2 },
+    ]
+  },
+  {
+    sem: 4,
+    subjek: [
+      { kod:'MEC4001', nama:'Heat Transfer',            kredit:3 },
+      { kod:'MEC4002', nama:'Industrial Automation',    kredit:3 },
+      { kod:'MEC4003', nama:'Maintenance Engineering',  kredit:3 },
+      { kod:'MEC4004', nama:'Welding Technology',       kredit:3 },
+      { kod:'GEN4001', nama:'Entrepreneurship',         kredit:2 },
+      { kod:'GEN4002', nama:'Technical Report Writing', kredit:2 },
+    ]
+  },
+  {
+    sem: 5,
+    subjek: [
+      { kod:'MEC5001', nama:'Final Year Project 1',     kredit:3 },
+      { kod:'MEC5002', nama:'Advanced Manufacturing',   kredit:3 },
+      { kod:'MEC5003', nama:'Quality Control',          kredit:3 },
+      { kod:'MEC5004', nama:'Safety & Environment',     kredit:3 },
+      { kod:'GEN5001', nama:'Industrial Training Prep', kredit:1 },
+    ]
+  },
+  {
+    sem: 6,
+    subjek: [
+      { kod:'MEC6001', nama:'Latihan Industri (LI)',    kredit:10 },
+      { kod:'MEC6002', nama:'Final Year Project 2',     kredit:3 },
+      { kod:'MEC6003', nama:'Seminar & Presentation',   kredit:2 },
+    ]
+  },
+];
+
+// Pelajar ini sudah selesai Sem 1–4 sahaja
+const kreditSelesai = [1, 2, 3, 4];
+
+function getKreditTotal(semList) {
+  return kreditData
+    .filter(s => semList.includes(s.sem))
+    .reduce((t, s) => t + s.subjek.reduce((a, sb) => a + sb.kredit, 0), 0);
+}
+
+function getKreditSem(sem) {
+  const s = kreditData.find(s => s.sem === sem);
+  return s ? s.subjek.reduce((a, sb) => a + sb.kredit, 0) : 0;
+}
+
+// ── RENDER KREDIT HOUR ───────────────────────────────────────────
+function renderKreditTab() {
+  const totalSelesai = getKreditTotal(kreditSelesai);
+  const totalKeseluruhan = getKreditTotal([1,2,3,4,5,6]);
+  const pctFill = Math.min((totalSelesai / KREDIT_GRAD) * 100, 100);
+  const layakLI = totalSelesai >= KREDIT_LI;
+  const layakGrad = totalSelesai >= KREDIT_GRAD;
+  const bakinLI = Math.max(KREDIT_LI - totalSelesai, 0);
+  const bakinGrad = Math.max(KREDIT_GRAD - totalSelesai, 0);
+
+  // Milestone cards
+  document.getElementById('kreditMilestones').innerHTML = `
+    <div class="kredit-milestone ${layakLI ? 'achieved' : 'pending'}">
+      <div class="km-label">Kredit Diperolehi</div>
+      <div class="km-value">${totalSelesai}</div>
+      <div class="km-sub">daripada ${KREDIT_GRAD} kredit</div>
+    </div>
+    <div class="kredit-milestone ${layakLI ? 'achieved' : 'pending'}">
+      <div class="km-label">🏭 Layak Latihan Industri</div>
+      <div class="km-value">${layakLI ? '✅' : bakinLI}</div>
+      <div class="km-sub">${layakLI ? 'Sudah mencapai 83 kredit' : 'kredit lagi diperlukan'}</div>
+    </div>
+    <div class="kredit-milestone ${layakGrad ? 'achieved' : 'locked'}">
+      <div class="km-label">🎓 Layak Graduasi</div>
+      <div class="km-value">${layakGrad ? '✅' : bakinGrad}</div>
+      <div class="km-sub">${layakGrad ? 'Sudah mencapai 93 kredit' : 'kredit lagi diperlukan (incl. LI)'}</div>
+    </div>
+    <div class="kredit-milestone locked">
+      <div class="km-label">📋 Jumlah Keseluruhan</div>
+      <div class="km-value">${KREDIT_GRAD}</div>
+      <div class="km-sub">Sem 1–6 + LI (${KREDIT_LI_UNIT} kredit)</div>
+    </div>
+  `;
+
+  // Progress bar fill
+  setTimeout(() => {
+    const fill = document.getElementById('kreditFill');
+    if (fill) fill.style.width = pctFill.toFixed(1) + '%';
+  }, 80);
+
+  // Build table
+  let html = `<thead><tr>
+    <th>Semester</th><th>Kod Subjek</th><th>Nama Subjek</th>
+    <th style="text-align:center">Kredit</th><th style="text-align:center">Status</th>
+  </tr></thead><tbody>`;
+
+  let grandTotal = 0;
+  kreditData.forEach(s => {
+    const semTotal = s.subjek.reduce((a, sb) => a + sb.kredit, 0);
+    const done = kreditSelesai.includes(s.sem);
+    grandTotal += done ? semTotal : 0;
+    html += `<tr class="kredit-sem-section">
+      <td colspan="5">📘 Semester ${s.sem} &nbsp;—&nbsp; ${done ? `<span style="color:var(--green)">✅ Selesai</span>` : `<span style="color:var(--muted)">⏳ Belum / Sedang</span>`} &nbsp;<span style="color:var(--muted);font-weight:400;font-size:11px">(${semTotal} kredit)</span></td>
+    </tr>`;
+    s.subjek.forEach(sb => {
+      html += `<tr>
+        <td style="color:var(--muted);font-size:12px">Sem ${s.sem}</td>
+        <td style="font-family:monospace;font-size:12px;color:var(--muted)">${sb.kod}</td>
+        <td>${sb.nama}</td>
+        <td style="text-align:center"><span class="subj-kredit">${sb.kredit}</span></td>
+        <td style="text-align:center">${done ? '<span class="badge green">✅ Lulus</span>' : '<span class="badge gray">⏳ Belum</span>'}</td>
+      </tr>`;
+    });
+    html += `<tr class="kredit-total-row">
+      <td colspan="3" style="text-align:right;color:var(--muted);font-size:12px">Jumlah Kredit Semester ${s.sem}</td>
+      <td style="text-align:center;color:var(--primary)">${semTotal}</td>
+      <td></td>
+    </tr>`;
+  });
+
+  // LI row
+  html += `<tr class="kredit-sem-section">
+    <td colspan="5">🏭 Latihan Industri — <span style="color:var(--muted);font-weight:400;font-size:11px">(Syarat: selesaikan 83 kredit terlebih dahulu)</span></td>
+  </tr>
+  <tr>
+    <td style="color:var(--muted);font-size:12px">Sem 6</td>
+    <td style="font-family:monospace;font-size:12px;color:var(--muted)">MEC6001</td>
+    <td>Latihan Industri (LI)</td>
+    <td style="text-align:center"><span class="subj-kredit">10</span></td>
+    <td style="text-align:center"><span class="badge yellow">⏳ Belum Mula</span></td>
+  </tr>`;
+
+  // Grand total
+  const pctDone = ((totalSelesai / KREDIT_GRAD) * 100).toFixed(1);
+  html += `<tr style="background:var(--blue-bg)">
+    <td colspan="3" style="font-weight:800;font-size:14px;color:var(--primary)">🎓 JUMLAH KREDIT KESELURUHAN</td>
+    <td style="text-align:center;font-weight:800;font-size:16px;color:var(--primary)">${KREDIT_GRAD}</td>
+    <td style="text-align:center"><span class="badge blue">${pctDone}% Lengkap</span></td>
+  </tr>`;
+
+  html += '</tbody>';
+  document.getElementById('kreditTable').innerHTML = html;
+}
+
+// Tambah baris subjek dalam modal upload
+let kreditRowCount = 0;
+function addKreditRow() {
+  kreditRowCount++;
+  const div = document.createElement('div');
+  div.style.cssText = 'display:flex;gap:8px;margin-bottom:8px;align-items:center';
+  div.innerHTML = `
+    <input class="form-input" type="text" placeholder="Nama subjek" style="flex:2" oninput="updateKreditTotal()">
+    <input class="form-input" type="number" placeholder="Kredit" min="1" max="6" style="flex:0 0 70px" oninput="updateKreditTotal()">
+    <button type="button" class="btn-icon" style="color:var(--red)" onclick="this.parentElement.remove();updateKreditTotal()">🗑</button>
+  `;
+  document.getElementById('kredit-subjek-rows').appendChild(div);
+}
+function updateKreditTotal() {
+  const inputs = document.querySelectorAll('#kredit-subjek-rows input[type="number"]');
+  const total = Array.from(inputs).reduce((s, i) => s + (parseInt(i.value)||0), 0);
+  document.getElementById('kredit-sem-total').textContent = total + ' kredit';
+}
+
+// ── NAVIGATION ────────────────────────────────────────────────────
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  const map = { 'dashboard':'Dashboard Utama / Sesi 2024/2025', 'senarai-pelajar':'Pengurusan Pelajar / Senarai Pelajar', 'tidak-kredit-bm':'Pengurusan Pelajar / Tidak Kredit BM', 'tidak-capai-plo':'Pengurusan Pelajar / Tidak Capai PLO', 'profil':'Pengurusan Pelajar / Profil Pelajar' };
+  document.getElementById('topbar-title').innerHTML = (map[id] || id).replace('/', '<span>/') + (map[id] ? '</span>' : '');
+  closeSidebar();
+  if (id === 'tidak-capai-plo') setTimeout(renderPLOBar, 100);
+  if (id === 'profil') setTimeout(renderProfilGPA, 100);
+}
+
+function showProfil(key) { showPage('profil'); }
+
+function showTab(id) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  event.target.classList.add('active');
+  if (id === 'plo') renderPLOCards();
+  if (id === 'semester') setTimeout(renderProfilGPA, 100);
+  if (id === 'kredit') renderKreditTab();
+}
+
+// ── SIDEBAR ───────────────────────────────────────────────────────
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('overlay').classList.toggle('open');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('overlay').classList.remove('open');
+}
+
+// ── MODALS ────────────────────────────────────────────────────────
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-bg').forEach(m => m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); }));
+
+// ── BM STATUS ─────────────────────────────────────────────────────
+function updateBMStatus() {
+  const gred = document.getElementById('gradBM').value;
+  const el = document.getElementById('bm-status-display');
+  if (!gred) { el.style.background='var(--bg)'; el.style.color='var(--muted)'; el.textContent='— Pilih gred dahulu —'; return; }
+  const kredit = ['A+','A','A-','B+','B','C+','C'];
+  if (kredit.includes(gred)) {
+    el.style.background = 'var(--green-bg)'; el.style.color = 'var(--green)';
+    el.innerHTML = '✅ KREDIT — Pelajar tidak perlu mengambil kursus tambahan BM';
+  } else {
+    el.style.background = 'var(--red-bg)'; el.style.color = 'var(--red)';
+    el.innerHTML = '🔴 TIDAK KREDIT — Pelajar wajib mengambil Bahasa Melayu Komunikasi';
+  }
+}
+
+// ── RENDER TABLES ─────────────────────────────────────────────────
+function renderPelajar(data) {
+  const tbody = document.getElementById('bodyPelajar');
+  tbody.innerHTML = data.map((p,i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td><strong>${p.nama}</strong></td>
+      <td>${p.matrik}</td>
+      <td>${p.kohort}</td>
+      <td><strong>${p.cgpa}</strong></td>
+      <td>${p.bmStatus === 'kredit' ? `<span class="badge green">✅ ${p.bm}</span>` : `<span class="badge red">🔴 ${p.bm}</span>`}</td>
+      <td>${p.ploGagal.length === 0 ? `<span class="badge green">✅ 11/11</span>` : `<span class="badge red">⚠️ ${p.plo}</span>`}</td>
+      <td>${p.status === 'aktif' ? '<span class="badge green">Aktif</span>' : p.status === 'berisiko' ? '<span class="badge red">Berisiko</span>' : '<span class="badge yellow">Cuti</span>'}</td>
+      <td><button class="btn-icon" onclick="showProfil('${p.matrik}')">👁</button></td>
+    </tr>`).join('');
+}
+
+function renderBM(data) {
+  const tbody = document.getElementById('bodyBM');
+  tbody.innerHTML = data.map((p,i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td><strong>${p.nama}</strong></td>
+      <td>${p.matrik}</td>
+      <td>${p.kohort}</td>
+      <td>2022</td>
+      <td><strong style="color:var(--red)">${p.bm}</strong></td>
+      <td><span class="badge red">🔴 Tidak Kredit</span></td>
+      <td><button class="btn-icon" onclick="showProfil('${p.matrik}')">👁</button></td>
+    </tr>`).join('');
+}
+
+function renderPLOTable(data) {
+  const tbody = document.getElementById('bodyPLO');
+  tbody.innerHTML = data.map((p,i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td><strong>${p.nama}</strong></td>
+      <td>${p.matrik}</td>
+      <td>${p.kohort}</td>
+      <td>${p.ploGagal.map(x => `<span class="plo-tag">${x}</span>`).join('')}</td>
+      <td><strong style="color:var(--red)">${p.ploGagal.length}</strong></td>
+      <td>${p.ploGagal.length === 0 ? '<span class="badge green">✅ Layak</span>' : '<span class="badge red">⚠️ Belum Layak</span>'}</td>
+      <td><button class="btn-icon" onclick="showProfil('${p.matrik}')">👁</button></td>
+    </tr>`).join('');
+}
+
+// ── FILTERS ───────────────────────────────────────────────────────
+function filterPelajar() {
+  const q = document.getElementById('searchPelajar').value.toLowerCase();
+  const kohort = document.getElementById('filterKohort').value;
+  const status = document.getElementById('filterStatus').value;
+  const filtered = dataPelajar.filter(p =>
+    (!q || p.nama.toLowerCase().includes(q) || p.matrik.toLowerCase().includes(q)) &&
+    (!kohort || p.kohort === kohort) &&
+    (!status || p.status === status)
+  );
+  renderPelajar(filtered);
+}
+
+function filterBM() {
+  const q = document.getElementById('searchBM').value.toLowerCase();
+  const kohort = document.getElementById('filterKohortBM').value;
+  const filtered = dataBM.filter(p =>
+    (!q || p.nama.toLowerCase().includes(q) || p.matrik.toLowerCase().includes(q)) &&
+    (!kohort || p.kohort === kohort)
+  );
+  renderBM(filtered);
+}
+
+function filterPLO() {
+  const q = document.getElementById('searchPLO').value.toLowerCase();
+  const kohort = document.getElementById('filterKohortPLO').value;
+  const ploNum = document.getElementById('filterPLONum').value;
+  const filtered = dataTakPLO.filter(p =>
+    (!q || p.nama.toLowerCase().includes(q) || p.matrik.toLowerCase().includes(q)) &&
+    (!kohort || p.kohort === kohort) &&
+    (!ploNum || p.ploGagal.includes('PLO'+ploNum))
+  );
+  renderPLOTable(filtered);
+}
+
+// ── PLO CARDS ─────────────────────────────────────────────────────
+function renderPLOCards() {
+  const container = document.getElementById('ploCards');
+  container.innerHTML = profilPLO.map(p => {
+    const pct = p.attainment;
+    const cls = pct >= p.sasaran ? 'achieved' : pct >= p.sasaran - 10 ? 'warning' : 'failed';
+    const barCls = pct >= p.sasaran ? 'green' : pct >= p.sasaran - 10 ? 'yellow' : 'red';
+    const badge = pct >= p.sasaran
+      ? '<span class="badge green">✅ Capai</span>'
+      : '<span class="badge red">🔴 Tidak Capai</span>';
+    return `
+      <div class="plo-card ${cls}">
+        <div class="plo-header">
+          <div class="plo-num">PLO ${p.no}</div>
+          ${badge}
+        </div>
+        <div class="plo-name">${p.nama}</div>
+        <div class="plo-bar-wrap"><div class="plo-bar ${barCls}" style="width:${pct}%"></div></div>
+        <div class="plo-pct" style="color:var(--${barCls})">${pct}%</div>
+        <div class="plo-target">Sasaran: ≥ ${p.sasaran}%</div>
+      </div>`;
+  }).join('');
+}
+
+// ── CHARTS ────────────────────────────────────────────────────────
+const sems = ['Sem 1','Sem 2','Sem 3','Sem 4','Sem 5','Sem 6'];
+
+function renderGPAChart() {
+  const ctx = document.getElementById('chartGPA').getContext('2d');
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: sems,
+      datasets: [
+        { label:'Kohort 2022', data:[3.15,3.22,3.18,3.31,3.40,3.52], borderColor:'#1a56db', backgroundColor:'rgba(26,86,219,0.08)', tension:0.4, pointRadius:4, fill:true },
+        { label:'Kohort 2023', data:[2.95,3.08,2.88,3.12,null,null], borderColor:'#16a34a', backgroundColor:'rgba(22,163,74,0.08)', tension:0.4, pointRadius:4, fill:true },
+        { label:'Kohort 2024', data:[2.80,null,null,null,null,null], borderColor:'#d97706', backgroundColor:'rgba(217,119,6,0.08)', tension:0.4, pointRadius:4, fill:true },
+      ]
+    },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ boxWidth:12, font:{ size:11 } } } }, scales:{ y:{ min:2, max:4, ticks:{ stepSize:0.5, font:{ size:11 } } }, x:{ ticks:{ font:{ size:11 } } } } }
+  });
+}
+
+function renderPLOChart() {
+  const ctx = document.getElementById('chartPLO').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ploData.map(p => 'PLO '+p.no),
+      datasets: [{
+        label:'% Capai',
+        data: ploData.map(p => p.attainment),
+        backgroundColor: ploData.map(p => p.attainment >= 80 ? 'rgba(22,163,74,0.7)' : p.attainment >= 60 ? 'rgba(217,119,6,0.7)' : 'rgba(220,38,38,0.7)'),
+        borderRadius: 4,
+      }]
+    },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ min:0, max:100, ticks:{ font:{ size:10 } } }, x:{ ticks:{ font:{ size:10 } } } } }
+  });
+}
+
+function renderPLOBar() {
+  const ctx = document.getElementById('chartPLOBar');
+  if (!ctx || ctx._chartInstance) return;
+  ctx._chartInstance = true;
+  new Chart(ctx.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: ploData.map(p => 'PLO '+p.no),
+      datasets: [{
+        label:'% Pelajar Capai PLO',
+        data: ploData.map(p => p.attainment),
+        backgroundColor: ploData.map(p => p.attainment >= 80 ? 'rgba(22,163,74,0.8)' : p.attainment >= 60 ? 'rgba(217,119,6,0.8)' : 'rgba(220,38,38,0.8)'),
+        borderRadius: 5,
+      }]
+    },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ min:0, max:100, ticks:{ callback: v => v+'%', font:{ size:10 } } }, x:{ ticks:{ font:{ size:11 } } } } }
+  });
+}
+
+function renderProfilGPA() {
+  const ctx = document.getElementById('chartProfilGPA');
+  if (!ctx || ctx._done) return;
+  ctx._done = true;
+  new Chart(ctx.getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: sems,
+      datasets: [{
+        label:'GPA Ahmad Syafiq',
+        data: [3.21, 3.05, 2.87, 3.10, null, null],
+        borderColor: '#1a56db', backgroundColor:'rgba(26,86,219,0.1)',
+        tension:0.4, pointRadius:5, fill:true,
+      }]
+    },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ min:2, max:4, ticks:{ stepSize:0.5, font:{ size:11 } } }, x:{ ticks:{ font:{ size:11 } } } } }
+  });
+}
+
+// ── LOGIN ─────────────────────────────────────────────────────────
+
+// Akaun demo — dalam sistem sebenar ini disimpan dalam database
+const akaun = {
+  ketua: [
+    { ic:'760512131234', nama:'En. Saifuldin bin Abdul Jalil', inisial:'SA', peranan:'Ketua Program DKM' }
+  ],
+  penasihat: [
+    { ic:'790301078765', nama:'Pn. Azlina binti Mohd Yusof',  inisial:'AY', peranan:'Penasihat Akademik' },
+    { ic:'810215136543', nama:'En. Razif bin Samat',           inisial:'RS', peranan:'Penasihat Akademik' },
+  ],
+  pelajar: [
+    { ic:'050312131234', nama:'Ahmad Syafiq bin Razali',    inisial:'AS', peranan:'Pelajar DKM' },
+    { ic:'050503078901', nama:'Ali bin Abu',                inisial:'AA', peranan:'Pelajar DKM' },
+    { ic:'041122067890', nama:'Siti Nur Aisyah binti Mohd', inisial:'SN', peranan:'Pelajar DKM' },
+  ]
+};
+
+let roleAktif = 'ketua';
+
+function selectRole(role) {
+  roleAktif = role;
+  document.querySelectorAll('.role-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('role-' + role).classList.add('active');
+  const label = { ketua:'Ketua Program', penasihat:'Penasihat Akademik', pelajar:'Pelajar' };
+  document.getElementById('login-title').textContent = 'Log Masuk — ' + label[role];
+  document.getElementById('login-error').classList.remove('show');
+  document.getElementById('login-username').value = '';
+  document.getElementById('login-password').value = '';
+  document.getElementById('login-username').focus();
+}
+
+function doLogin() {
+  const user = document.getElementById('login-username').value.trim();
+  const pass = document.getElementById('login-password').value.trim();
+  const errEl = document.getElementById('login-error');
+  errEl.classList.remove('show');
+
+  if (!/^\d{12}$/.test(user)) {
+    errEl.textContent = '❌ Username mesti 12 digit nombor tanpa sempang.';
+    errEl.classList.add('show'); return;
+  }
+  if (user !== pass) {
+    errEl.textContent = '❌ Username dan password tidak sepadan.';
+    errEl.classList.add('show'); return;
+  }
+  const pengguna = (akaun[roleAktif] || []).find(a => a.ic === user);
+  if (!pengguna) {
+    errEl.textContent = '❌ No. Kad Pengenalan tidak dijumpai. Sila hubungi pentadbir.';
+    errEl.classList.add('show'); return;
+  }
+  masukDashboard(pengguna, roleAktif);
+}
+
+function masukDashboard(pengguna, role) {
+  // Kemaskini nama pengguna dalam sidebar & avatar
+  document.querySelector('.sidebar-footer .user-name').textContent = pengguna.nama;
+  document.querySelector('.sidebar-footer .user-role').textContent = pengguna.peranan;
+  document.querySelector('.avatar').textContent = pengguna.inisial;
+  document.querySelector('.avatar').title = pengguna.nama;
+
+  // Hadkan menu mengikut peranan
+  if (role === 'pelajar') {
+    document.querySelector('.sidebar-nav').innerHTML = `
+      <div class="nav-section" style="padding:10px 18px 4px;color:#475569;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase">Menu Saya</div>
+      <a class="nav-item active" onclick="showPage('profil')">
+        <span class="icon">👤</span> Profil Saya
+      </a>`;
+    showPage('profil');
+  } else if (role === 'penasihat') {
+    // Penasihat tidak nampak tetapan
+    document.querySelectorAll('.nav-item').forEach(el => {
+      if (el.textContent.includes('Tetapan')) el.style.display = 'none';
+    });
+  }
+
+  // Sembunyikan login, papar dashboard
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('app-shell').classList.add('visible');
+  initDashboard();
+}
+
+function doLogout() {
+  // Reset dashboard state
+  window._chartsInited = false;
+  document.getElementById('app-shell').classList.remove('visible');
+  document.getElementById('login-screen').classList.remove('hidden');
+  // Pulihkan sidebar nav penuh
+  location.reload();
+}
+
+// ── INIT ──────────────────────────────────────────────────────────
+function initDashboard() {
+  renderPelajar(dataPelajar);
+  renderBM(dataBM);
+  renderPLOTable(dataTakPLO);
+  renderPLOCards();
+  if (!window._chartsInited) {
+    window._chartsInited = true;
+    renderGPAChart();
+    renderPLOChart();
+  }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('login-username').focus();
+});
+</script>
+</body>
+</html>
